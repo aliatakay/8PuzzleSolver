@@ -1,11 +1,14 @@
-﻿using System;
+﻿using Puzzle.Common.Algorithm;
+using Puzzle.Common.Event;
+using Puzzle.Common.Extension;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 
-namespace Puzzle
+namespace App
 {
     public partial class PuzzleForm : Form
     {
@@ -33,9 +36,9 @@ namespace Puzzle
         }
 
         //   Events
-        public event EventHandler<ChangedPieceEventArgs> Get_ChangedPieceValue = null;
+        public event EventHandler<PieceChangedEventArgs> Get_ChangedPieceValue = null;
 
-        public event EventHandler<NewPuzzleEventArgs> Get_NewPuzzle = null;
+        public event EventHandler<PuzzleRenewedEventArgs> Get_NewPuzzle = null;
 
         public event EventHandler Start_AStar = null;
         
@@ -50,10 +53,10 @@ namespace Puzzle
         
         private void Get_ChangedPieceValue_Start(int index, int value)
         {
-            EventHandler<ChangedPieceEventArgs> handler = Get_ChangedPieceValue;
+            EventHandler<PieceChangedEventArgs> handler = Get_ChangedPieceValue;
             if (handler != null)
             {
-                Get_ChangedPieceValue(this, new ChangedPieceEventArgs(index, value));
+                Get_ChangedPieceValue(this, new PieceChangedEventArgs(index, value));
             }
         }
         
@@ -62,10 +65,10 @@ namespace Puzzle
             lblMove.Text = "";
             lblTime.Text = "";
 
-            EventHandler<NewPuzzleEventArgs> handler = Get_NewPuzzle;
+            EventHandler<PuzzleRenewedEventArgs> handler = Get_NewPuzzle;
             if (handler != null)
             {
-                Get_NewPuzzle(this, new NewPuzzleEventArgs(lastPieceEmpty, puzzleSize));
+                Get_NewPuzzle(this, new PuzzleRenewedEventArgs(puzzleSize, lastPieceEmpty));
             }
         }
         
@@ -377,7 +380,7 @@ namespace Puzzle
 
             foreach (int[] statue in puzzleStatuses)
             {
-                newPuzzleStatuses.Add(PuzzleExtensions.Make2Dimensional(statue, _puzzleSize));
+                newPuzzleStatuses.Add(PuzzleExtension.ConvertToDimension2(statue, _puzzleSize));
                 moves.Add(statue[index]);
 
                 for (int i = 0; i < statue.Length; i++)
@@ -389,11 +392,11 @@ namespace Puzzle
             Call_AStar_Start(isSolved, newPuzzleStatuses, algorithm.Time, algorithm.NumberOfNodes);
         }
         
-        private void Get_NewPuzzle_Gui(object sender, NewPuzzleEventArgs e)
+        private void Get_NewPuzzle_Gui(object sender, PuzzleRenewedEventArgs e)
         {
             _puzzleSize = e.PuzzleSize;
             GenerateNewPuzzle(e.PuzzleSize, e.LastPieceEmpty);
-            this.DrawPuzzle(PuzzleExtensions.Make2Dimensional(_gameField, _puzzleSize), e.PuzzleSize);
+            this.DrawPuzzle(PuzzleExtension.ConvertToDimension2(_gameField, _puzzleSize), e.PuzzleSize);
         }
         
         private void GenerateNewPuzzle(int gameFieldSize, bool lastPieceEmpty)
@@ -413,7 +416,7 @@ namespace Puzzle
 
             if (IsPuzzleSolvable(puzzle, gameFieldSize))
             {
-                _gameField = PuzzleExtensions.Make1Dimensional(puzzle, gameFieldSize);
+                _gameField = PuzzleExtension.ConvertToDimension1(puzzle, gameFieldSize);
             }
             else
             {
@@ -436,7 +439,7 @@ namespace Puzzle
                 }
             }
 
-            _targetPuzzle = PuzzleExtensions.Make1Dimensional(puzzle, puzzleSize);
+            _targetPuzzle = PuzzleExtension.ConvertToDimension1(puzzle, puzzleSize);
         }
         
         private bool IsPuzzleSolvable(int[,] puzzle, int puzzleSize)

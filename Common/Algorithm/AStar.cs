@@ -1,49 +1,45 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Puzzle.Common.Entity;
+using Puzzle.Common.Extension;
 using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 
-namespace Puzzle
+namespace Puzzle.Common.Algorithm
 {
     public class AStar
     {
-        private int[] _targetPuzzle;
-        private int _puzzleSize;
-
-        private Node _lastNode;
-        private Stopwatch _stopwatch;
+        private Node lastNode;
+        private readonly int size;
+        private readonly int[] puzzle;
+        private readonly Stopwatch watch;
 
         public string Time
         {
             get
             {
-                return _stopwatch.Elapsed.Seconds.ToString() + "." + _stopwatch.Elapsed.Milliseconds.ToString() + " sec";
+                return this.watch.Elapsed.Seconds.ToString() + "." + this.watch.Elapsed.Milliseconds.ToString() + " sec";
             }
         }
 
         public int NumberOfNodes { get { return GetNumberOfNodes(); } }
 
-        // Constructor
-        public AStar(int[] targetGameField, int gameFieldSize)
+        public AStar(int[] puzzle, int size)
         {
-            _targetPuzzle = targetGameField;
-            _puzzleSize = gameFieldSize;
-            _stopwatch = new Stopwatch();
+            this.size = size;
+            this.puzzle = puzzle;
+            this.watch = new Stopwatch();
         }
 
-        // AStar Algorithm
         public bool Solve(int[] givenPuzzle)
         {
-            StopwatchStart();
+            RestartWatch();
 
-            Node currentNode = null;
+            var currentNode = default(Node);
 
-            List<Node> openList = new List<Node>();
-            List<Node> closedList = new List<Node>();
-            List<Node> neighbourNodes = new List<Node>();
+            var openList = new List<Node>();
+            var closedList = new List<Node>();
+            var neighbourNodes = new List<Node>();
 
-            Node node = new Node(null, givenPuzzle);
+            var node = new Node(givenPuzzle, null);
             openList.Add(node);
 
             while (openList.Count != 0)
@@ -51,7 +47,7 @@ namespace Puzzle
                 currentNode = GetCheapNode(openList);
                 openList.Remove(currentNode);
 
-                if (IsFinalNode(currentNode, _targetPuzzle))
+                if (IsFinalNode(currentNode, this.puzzle))
                 {
                     break;
                 }
@@ -62,8 +58,8 @@ namespace Puzzle
                 {
                     foreach (Node nextNode in neighbourNodes)
                     {
-                        Node openNode = null;
-                        Node closedNode = null;
+                        var openNode = default(Node);
+                        var closedNode = default(Node);
 
                         openNode = GetNodeFromList(openList, nextNode);
                         closedNode = GetNodeFromList(closedList, nextNode);
@@ -93,57 +89,52 @@ namespace Puzzle
                 }
             }
 
-            _lastNode = currentNode;
+            this.lastNode = currentNode;
 
-            if (currentNode != null && !IsFinalNode(currentNode, _targetPuzzle))
-            {
-                StopwatchEnd();
-                return false;
-            }
-            else
-            {
-                StopwatchEnd();
-                return true;
-            }
+            StopWatch();
+
+            return currentNode == null || IsFinalNode(currentNode, this.puzzle);
         }
 
-        private void StopwatchEnd()
+        private void StopWatch()
         {
-            _stopwatch.Stop();
+            this.watch.Stop();
         }
 
-        private void StopwatchStart()
+        private void RestartWatch()
         {
-            _stopwatch.Reset();
-            _stopwatch.Start();
+            this.watch.Reset();
+            this.watch.Start();
         }
 
-        internal List<int[]> GetPuzzleCases()
+        public List<int[]> GetPuzzleCases()
         {
-            Node currentNode = _lastNode;
-            List<int[]> List = new List<int[]>();
+            var currentNode = this.lastNode;
+            var list = new List<int[]>();
 
             while (true)
             {
                 if (currentNode == null)
                 {
-                    List<int[]> cases = new List<int[]>();
-                    for (int i = List.Count - 1; i > -1; i--)
+                    var cases = new List<int[]>();
+
+                    for (int i = list.Count - 1; i > -1; i--)
                     {
-                        cases.Add(List[i]);
+                        cases.Add(list[i]);
                     }
+
                     return cases;
                 }
 
-                List.Add(currentNode.GameField);
-                currentNode = currentNode.ParentNode;
+                list.Add(currentNode.Puzzle);
+                currentNode = currentNode.Parent;
             }
         }
 
         private int GetNumberOfNodes()
         {
-            int count = 0;
-            Node currentNode = _lastNode;
+            var count = 0;
+            var currentNode = this.lastNode;
 
             while (true)
             {
@@ -153,61 +144,64 @@ namespace Puzzle
                 }
 
                 ++count;
-                currentNode = currentNode.ParentNode;
+                currentNode = currentNode.Parent;
             }
         }
 
-        private void UpdateNode(List<Node> list, Node oldNode, Node newNode)
+        private static void UpdateNode(List<Node> list, Node oldNode, Node newNode)
         {
             for (int i = 0; i < list.Count; i++)
             {
                 if (list[i] == oldNode)
                 {
                     list[i] = newNode;
-                    return;
+                    break;
                 }
             }
 
-            throw new Exception();
+            return;
         }
 
-        private Node GetNodeFromList(List<Node> list, Node node)
+        private static Node? GetNodeFromList(List<Node> list, Node node)
         {
+            var result = default(Node);
+
             foreach (Node currentNode in list)
             {
-                if (node.GameField.SequenceEqual(currentNode.GameField))
+                if (node.Puzzle.SequenceEqual(currentNode.Puzzle))
                 {
-                    return currentNode;
+                    result = currentNode;
+                    break;
                 }
             }
 
-            return null;
+            return result;
         }
 
         private List<Node> GetNeighbourNodes(Node currentNode)
         {
-            List<Node> nodes = new List<Node>();
-            int[,] currentPuzzle = PuzzleExtensions.Make2Dimensional(currentNode.GameField, _puzzleSize);
-            Point emptyPiece = GetEmptyPiece(currentPuzzle);
+            var nodes = new List<Node>();
+            var currentPuzzle = PuzzleExtension.ConvertToDimension2(currentNode.Puzzle, this.size);
+            var emptyPiece = GetEmptyPiece(currentPuzzle);
 
             if (emptyPiece.X < currentPuzzle.GetLength(0) - 1)
             {
-                nodes.Add(new Node(currentNode, GetNewPuzzle(currentPuzzle, emptyPiece, new Point(emptyPiece.X + 1, emptyPiece.Y))));
+                nodes.Add(new Node(GetNewPuzzle(currentPuzzle, emptyPiece, new Point(emptyPiece.X + 1, emptyPiece.Y)), currentNode));
             }
 
             if (emptyPiece.X > 0)
             {
-                nodes.Add(new Node(currentNode, GetNewPuzzle(currentPuzzle, emptyPiece, new Point(emptyPiece.X - 1, emptyPiece.Y))));
+                nodes.Add(new Node(GetNewPuzzle(currentPuzzle, emptyPiece, new Point(emptyPiece.X - 1, emptyPiece.Y)), currentNode));
             }
 
             if (emptyPiece.Y < currentPuzzle.GetLength(1) - 1)
             {
-                nodes.Add(new Node(currentNode, GetNewPuzzle(currentPuzzle, emptyPiece, new Point(emptyPiece.X, emptyPiece.Y + 1))));
+                nodes.Add(new Node(GetNewPuzzle(currentPuzzle, emptyPiece, new Point(emptyPiece.X, emptyPiece.Y + 1)), currentNode));
             }
 
             if (emptyPiece.Y > 0)
             {
-                nodes.Add(new Node(currentNode, GetNewPuzzle(currentPuzzle, emptyPiece, new Point(emptyPiece.X, emptyPiece.Y - 1))));
+                nodes.Add(new Node(GetNewPuzzle(currentPuzzle, emptyPiece, new Point(emptyPiece.X, emptyPiece.Y - 1)), currentNode));
             }
 
             return nodes;
@@ -215,7 +209,7 @@ namespace Puzzle
 
         private int[] GetNewPuzzle(int[,] currentPuzzle, Point emptyPiece, Point newEmptyPiece)
         {
-            int[,] newPuzzle = new int[currentPuzzle.GetLength(0), currentPuzzle.GetLength(1)];
+            var newPuzzle = new int[currentPuzzle.GetLength(0), currentPuzzle.GetLength(1)];
 
             for (int x = 0; x < currentPuzzle.GetLength(0); x++)
             {
@@ -228,11 +222,13 @@ namespace Puzzle
             newPuzzle[emptyPiece.X, emptyPiece.Y] = currentPuzzle[newEmptyPiece.X, newEmptyPiece.Y];
             newPuzzle[newEmptyPiece.X, newEmptyPiece.Y] = currentPuzzle[emptyPiece.X, emptyPiece.Y];
 
-            return PuzzleExtensions.Make1Dimensional(newPuzzle, _puzzleSize);
+            return PuzzleExtension.ConvertToDimension1(newPuzzle, this.size);
         }
 
-        private Point GetEmptyPiece(int[,] currentGameField)
+        private static Point GetEmptyPiece(int[,] currentGameField)
         {
+            var result = default(Point);
+
             for (int x = 0; x < currentGameField.GetLength(0); x++)
             {
                 for (int y = 0; y < currentGameField.GetLength(1); y++)
@@ -244,37 +240,25 @@ namespace Puzzle
                 }
             }
 
-            throw new Exception();
+            return result;
         }
 
-        private bool IsFinalNode(Node node, int[] targetPuzzle)
+        private static bool IsFinalNode(Node node, int[] targetPuzzle)
         {
-            if (node.GameField.SequenceEqual(targetPuzzle))
-            {
-                return true;
-            }
-
-            return false;
+            return node.Puzzle.SequenceEqual(targetPuzzle);
         }
 
-        private Node GetCheapNode(List<Node> openList)
+        private static Node? GetCheapNode(List<Node> openList)
         {
-            Node node = null;
+            var result = default(Node);
 
-            foreach (Node currentNode in openList)
+            foreach (var currentNode in openList)
             {
-                if (node == null)
-                {
-                    node = currentNode;
-                }
-
-                if (currentNode.TotalCost < node.TotalCost)
-                {
-                    node = currentNode;
-                }
+                if (result == null || currentNode.TotalCost < result.TotalCost)
+                    result = currentNode;
             }
 
-            return node;
+            return result;
         }
     }
 }

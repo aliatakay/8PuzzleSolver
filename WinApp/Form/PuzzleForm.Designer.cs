@@ -1,4 +1,4 @@
-﻿namespace Puzzle
+﻿namespace App
 {
     partial class PuzzleForm
     {
@@ -246,4 +246,3 @@
         private System.Windows.Forms.Label lblSecond;
     }
 }
-
